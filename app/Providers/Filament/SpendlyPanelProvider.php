@@ -28,6 +28,7 @@ class SpendlyPanelProvider extends PanelProvider
             ->id('spendly')
             ->path('spendly')
             ->login()
+            ->registration()
             ->colors([
                 'primary' => Color::Amber,
             ])
