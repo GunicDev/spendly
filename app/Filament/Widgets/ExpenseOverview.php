@@ -38,6 +38,7 @@ class ExpenseOverview extends BaseWidget
     }
 
     #[On('expense-created')]
+    #[On('expense-updated')]
     #[On('expense-deleted')]
     public function refreshStats(): void {}
 

@@ -6,10 +6,11 @@ use App\Filament\Widgets\ExpenseOverview;
 use App\Models\Expense;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
@@ -52,32 +53,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
             ->model(Expense::class)
             ->statePath('data')
             ->columns(1)
-            ->components([
-                Select::make('type')
-                    ->label('Type')
-                    ->options([
-                        'income' => 'Income',
-                        'expense' => 'Expense',
-                    ])
-                    ->required(),
-                TextInput::make('amount')
-                    ->label('Amount')
-                    ->numeric()
-                    ->prefix('KM')
-                    ->minValue(0.01)
-                    ->required(),
-                TextInput::make('name')
-                    ->label('Name')
-                    ->maxLength(255)
-                    ->required(),
-                Textarea::make('description')
-                    ->label('Description')
-                    ->rows(4)
-                    ->maxLength(1000),
-                DatePicker::make('date')
-                    ->label('Date')
-                    ->required(),
-            ]);
+            ->components($this->getExpenseFormSchema());
     }
 
     public function create(): void
@@ -142,6 +118,11 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ]),
             ])
             ->recordActions([
+                EditAction::make()
+                    ->schema($this->getExpenseFormSchema())
+                    ->modalHeading('Edit entry')
+                    ->successNotificationTitle('Entry updated')
+                    ->after(fn () => $this->dispatch('expense-updated')),
                 DeleteAction::make()
                     ->after(fn () => $this->dispatch('expense-deleted')),
             ])
@@ -194,5 +175,41 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     {
         return Expense::query()
             ->where('user_id', Auth::id());
+    }
+
+    protected function getExpenseFormSchema(): array
+    {
+        return [
+            ToggleButtons::make('type')
+                ->options([
+                    'income' => 'Income',
+                    'expense' => 'Expense',
+                ])
+                ->colors([
+                    'income' => 'success',
+                    'expense' => 'danger',
+                ])
+                ->inline()
+                ->grouped()
+                ->required(),
+            TextInput::make('amount')
+                ->label('Amount')
+                ->inputMode('decimal')
+                ->numeric()
+                ->prefix('KM')
+                ->minValue(0.01)
+                ->required(),
+            TextInput::make('name')
+                ->label('Name')
+                ->maxLength(255)
+                ->required(),
+            Textarea::make('description')
+                ->label('Description')
+                ->rows(4)
+                ->maxLength(1000),
+            DatePicker::make('date')
+                ->label('Date')
+                ->required(),
+        ];
     }
 }
