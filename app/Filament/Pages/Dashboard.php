@@ -8,15 +8,20 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Filament\Pages\Dashboard\Actions\FilterAction;
+use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
@@ -28,7 +33,10 @@ use Illuminate\Support\Facades\Auth;
 
 class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
 {
-    use Tables\Concerns\InteractsWithTable;
+    use HasFiltersAction;
+    use Tables\Concerns\InteractsWithTable {
+        HasFiltersAction::normalizeTableFilterValuesFromQueryString insteadof Tables\Concerns\InteractsWithTable;
+    }
 
     public ?array $data = [];
 
@@ -162,6 +170,66 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                             ]),
                     ]),
             ]);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            FilterAction::make()
+                ->label('Filter overview')
+                ->modalHeading('Filter overview')
+                ->modalWidth('xl')
+                ->schema([
+                    Select::make('period')
+                        ->label('Period')
+                        ->options([
+                            'all' => 'All time',
+                            'month' => 'Month',
+                            'range' => 'Date range',
+                        ])
+                        ->default('all')
+                        ->live()
+                        ->required()
+                        ->columnSpanFull(),
+                    Grid::make([
+                        'default' => 1,
+                        'md' => 2,
+                    ])
+                        ->schema([
+                            TextInput::make('month')
+                                ->label('Month')
+                                ->type('month')
+                                ->default(now()->format('Y-m'))
+                                ->hidden(fn (Get $get): bool => $get('period') !== 'month')
+                                ->columnSpanFull(),
+                            DatePicker::make('startDate')
+                                ->label('From')
+                                ->live()
+                                ->maxDate(fn (Get $get): ?string => $get('endDate'))
+                                ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                                    $endDate = $get('endDate');
+
+                                    if ($state && $endDate && $state > $endDate) {
+                                        $set('endDate', null);
+                                    }
+                                })
+                                ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
+                            DatePicker::make('endDate')
+                                ->label('To')
+                                ->live()
+                                ->minDate(fn (Get $get): ?string => $get('startDate'))
+                                ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                                    $startDate = $get('startDate');
+
+                                    if ($state && $startDate && $state < $startDate) {
+                                        $set('startDate', null);
+                                    }
+                                })
+                                ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
+                        ])
+                        ->columnSpanFull(),
+                ]),
+        ];
     }
 
     protected function getHeaderWidgets(): array
