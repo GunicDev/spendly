@@ -16,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class UserResource extends Resource
 {
@@ -24,6 +25,13 @@ class UserResource extends Resource
     protected static string | BackedEnum | null $navigationIcon = Heroicon::OutlinedUsers;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    public static function canAccess(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->role === 'admin';
+    }
 
     public static function form(Schema $schema): Schema
     {
