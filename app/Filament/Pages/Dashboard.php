@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -40,6 +41,10 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     }
 
     public ?array $data = [];
+
+    public bool $isExpenseFormVisible = true;
+
+    protected Width | string | null $maxContentWidth = Width::Full;
 
     protected static ?string $navigationLabel = 'Dashboard';
 
@@ -100,23 +105,33 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->label('Type')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => $state === 'income' ? 'Income' : 'Expense')
-                    ->color(fn (string $state): string => $state === 'income' ? 'success' : 'danger'),
+                    ->color(fn (string $state): string => $state === 'income' ? 'success' : 'danger')
+                    ->width('12%'),
                 TextColumn::make('name')
                     ->label('Name')
                     ->searchable()
-                    ->sortable(),               
+                    ->sortable()
+                    ->width('25%')
+                    ->grow(),
                 TextColumn::make('amount')
                     ->label('Amount')
                     ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
-                    ->sortable(),
+                    ->sortable()
+                    ->alignEnd()
+                    ->width('20%')
+                    ->grow(),
                 TextColumn::make('date')
                     ->label('Date')
                     ->date('d.m.Y.')
-                    ->sortable(),
+                    ->sortable()
+                    ->width('18%')
+                    ->grow(),
                 TextColumn::make('description')
                     ->label('Description')
                     ->limit(38)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->width('25%')
+                    ->grow(),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -160,14 +175,15 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                             ->columnSpan([
                                 'default' => 1,
                                 'lg' => 1,
-                            ]),
+                            ])
+                            ->hidden(fn (): bool => ! $this->isExpenseFormVisible),
                         Section::make()
                             ->schema([
                                 EmbeddedTable::make(),
                             ])
-                            ->columnSpan([
+                            ->columnSpan(fn (): array => [
                                 'default' => 1,
-                                'lg' => 2,
+                                'lg' => $this->isExpenseFormVisible ? 2 : 'full',
                             ]),
                     ]),
             ]);
@@ -176,6 +192,11 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('toggleExpenseForm')
+                ->label(fn (): string => $this->isExpenseFormVisible ? 'Hide form' : 'Show form')
+                ->icon(fn (): string => $this->isExpenseFormVisible ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                ->color('gray')
+                ->action(fn (): bool => $this->isExpenseFormVisible = ! $this->isExpenseFormVisible),
             FilterAction::make()
                 ->label('Filter overview')
                 ->modalHeading('Filter overview')
