@@ -132,7 +132,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 TextColumn::make('description')
                     ->label('Description')
                     ->limit(38)
-                    ->toggleable()
+                    ->toggleable()                   
                     ->width('25%')
                     ->grow(),
             ])
@@ -181,10 +181,18 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                                 'default' => 1,
                                 'lg' => 1,
                             ])
+                            ->extraAttributes([
+                                'class' => 'spendly-dashboard-form-section spendly-dashboard-equal-height',
+                            ])
                             ->hidden(fn (): bool => ! $this->isExpenseFormVisible),
                         Section::make()
                             ->schema([
                                 EmbeddedTable::make(),
+                            ])
+                            ->extraAttributes(fn (): array => [
+                                'class' => $this->isExpenseFormVisible
+                                    ? 'spendly-dashboard-table-section spendly-dashboard-equal-height'
+                                    : 'spendly-dashboard-table-section',
                             ])
                             ->columnSpan(fn (): array => [
                                 'default' => 1,
@@ -301,7 +309,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ->required(),
             Textarea::make('description')
                 ->label('Description')
-                ->rows(4)
+                ->rows(8)
                 ->maxLength(1000),
             DatePicker::make('date')
                 ->label('Date')

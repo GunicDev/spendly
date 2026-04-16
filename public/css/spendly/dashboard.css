@@ -1,0 +1,47 @@
+@media (min-width: 800px) {
+    .spendly-dashboard-equal-height {
+        --spendly-dashboard-section-height: 49rem;
+        align-self: stretch;
+        height: var(--spendly-dashboard-section-height);
+    }
+
+    .spendly-dashboard-equal-height > .fi-section {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .spendly-dashboard-equal-height > .fi-section > .fi-section-content-ctn,
+    .spendly-dashboard-equal-height .fi-section-content {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .spendly-dashboard-table-section > .fi-section > .fi-section-content-ctn,
+    .spendly-dashboard-table-section .fi-section-content,
+    .spendly-dashboard-table-section .fi-sc,
+    .spendly-dashboard-table-section .fi-sc-component,
+    .spendly-dashboard-table-section .fi-ta,
+    .spendly-dashboard-table-section .fi-ta-ctn,
+    .spendly-dashboard-table-section .fi-ta-main {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .spendly-dashboard-table-section .fi-ta-content-ctn {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .spendly-dashboard-table-section .fi-ta-main > nav,
+    .spendly-dashboard-table-section .fi-ta-main > .fi-pagination {
+        margin-top: auto;
+    }
+}

@@ -11,6 +11,7 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Assets\Css;
 use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -31,6 +32,10 @@ class SpendlyPanelProvider extends PanelProvider
             ->registration()
             ->colors([
                 'primary' => Color::Amber,
+            ])
+            ->assets([
+                Css::make('spendly-dashboard')
+                    ->relativePublicPath('css/spendly/dashboard.css'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->pages([
