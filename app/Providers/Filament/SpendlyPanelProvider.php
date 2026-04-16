@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Currencies;
+use App\Filament\Pages\Profile;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -33,6 +35,8 @@ class SpendlyPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->pages([
                 Dashboard::class,
+                Currencies::class,
+                Profile::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])

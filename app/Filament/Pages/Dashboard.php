@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ExpenseOverview;
 use App\Models\Expense;
+use App\Services\FrankfurterService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -106,7 +107,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->sortable(),               
                 TextColumn::make('amount')
                     ->label('Amount')
-                    ->formatStateUsing(fn (string $state): string => number_format((float) $state, 2) . ' KM')
+                    ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
                     ->sortable(),
                 TextColumn::make('date')
                     ->label('Date')
@@ -264,7 +265,8 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ->label('Amount')
                 ->inputMode('decimal')
                 ->numeric()
-                ->prefix('KM')
+                ->prefix('BAM')
+                ->helperText('Entries are saved in BAM and shown in your preferred currency.')
                 ->minValue(0.01)
                 ->required(),
             TextInput::make('name')
@@ -279,5 +281,18 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ->label('Date')
                 ->required(),
         ];
+    }
+
+    protected function formatMoney(float | int | string $amount): string
+    {
+        $currency = $this->getPreferredCurrency();
+        $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, 'BAM', $currency) ?? (float) $amount;
+
+        return number_format($convertedAmount, 2) . " {$currency}";
+    }
+
+    protected function getPreferredCurrency(): string
+    {
+        return Auth::user()?->preferred_currency ?? 'BAM';
     }
 }

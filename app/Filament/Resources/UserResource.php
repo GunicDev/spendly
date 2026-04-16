@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Services\FrankfurterService;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -57,6 +58,12 @@ class UserResource extends Resource
                     ])
                     ->default('user')
                     ->required(),
+                Select::make('preferred_currency')
+                    ->label('Preferred currency')
+                    ->options(fn (): array => app(FrankfurterService::class)->currencyOptions())
+                    ->searchable()
+                    ->default('BAM')
+                    ->required(),
             ]);
     }
 
@@ -82,6 +89,10 @@ class UserResource extends Resource
                         'admin' => 'success',
                         default => 'gray',
                     })
+                    ->sortable(),
+                TextColumn::make('preferred_currency')
+                    ->label('Currency')
+                    ->badge()
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->extraCellAttributes(fn (User $record): array => static::getSelectableCellAttributes($record))

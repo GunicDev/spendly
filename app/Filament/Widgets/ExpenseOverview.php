@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Expense;
+use App\Services\FrankfurterService;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -15,20 +16,17 @@ class ExpenseOverview extends BaseWidget
 {
     use InteractsWithPageFilters;
 
-    protected ?string $pollingInterval = '3s';
+    protected ?string $pollingInterval = null;
 
     protected function getStats(): array
     {
-        $query = $this->getFilteredExpenseQuery();
+        $totals = $this->getFilteredExpenseQuery()
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income")
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense")
+            ->first();
 
-        $income = (clone $query)
-            ->where('type', 'income')
-            ->sum('amount');
-
-        $expense = (clone $query)
-            ->where('type', 'expense')
-            ->sum('amount');
-
+        $income = (float) ($totals?->income ?? 0);
+        $expense = (float) ($totals?->expense ?? 0);
         $balance = $income - $expense;
 
         return [
@@ -48,7 +46,10 @@ class ExpenseOverview extends BaseWidget
 
     protected function formatMoney(float | int | string $amount): string
     {
-        return number_format((float) $amount, 2) . ' KM';
+        $currency = Auth::user()?->preferred_currency ?? 'BAM';
+        $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, 'BAM', $currency) ?? (float) $amount;
+
+        return number_format($convertedAmount, 2) . " {$currency}";
     }
 
     protected function getFilteredExpenseQuery(): Builder
