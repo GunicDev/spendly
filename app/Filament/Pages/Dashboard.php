@@ -32,6 +32,7 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
 {
@@ -47,6 +48,8 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected Width | string | null $maxContentWidth = Width::Full;
 
     protected static ?string $navigationLabel = 'Dashboard';
+
+    private const STORAGE_CURRENCY = 'BAM';
 
     public function getTitle(): string
     {
@@ -72,7 +75,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
 
     public function create(): void
     {
-        $data = $this->form->getState();
+        $data = $this->preferredCurrencyAmountToStoredAmount($this->form->getState());
 
         Expense::create([
             ...$data,
@@ -146,6 +149,8 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->schema($this->getExpenseFormSchema())
                     ->modalHeading('Edit entry')
                     ->successNotificationTitle('Entry updated')
+                    ->mutateRecordDataUsing(fn (array $data): array => $this->storedAmountToPreferredCurrencyAmount($data))
+                    ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountToStoredAmount($data))
                     ->after(fn () => $this->dispatch('expense-updated')),
                 DeleteAction::make()
                     ->after(fn () => $this->dispatch('expense-deleted')),
@@ -286,8 +291,8 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ->label('Amount')
                 ->inputMode('decimal')
                 ->numeric()
-                ->prefix('BAM')
-                ->helperText('Entries are saved in BAM and shown in your preferred currency.')
+                ->prefix(fn (): string => $this->getPreferredCurrency())
+                ->helperText('Use your preferred currency for this entry.')
                 ->minValue(0.01)
                 ->required(),
             TextInput::make('name')
@@ -307,13 +312,61 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function formatMoney(float | int | string $amount): string
     {
         $currency = $this->getPreferredCurrency();
-        $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, 'BAM', $currency) ?? (float) $amount;
+        $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, self::STORAGE_CURRENCY, $currency) ?? (float) $amount;
 
         return number_format($convertedAmount, 2) . " {$currency}";
     }
 
     protected function getPreferredCurrency(): string
     {
-        return Auth::user()?->preferred_currency ?? 'BAM';
+        return Auth::user()?->preferred_currency ?? self::STORAGE_CURRENCY;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function preferredCurrencyAmountToStoredAmount(array $data): array
+    {
+        if (! isset($data['amount']) || ! is_numeric($data['amount'])) {
+            return $data;
+        }
+
+        $convertedAmount = app(FrankfurterService::class)->convert(
+            (float) $data['amount'],
+            $this->getPreferredCurrency(),
+            self::STORAGE_CURRENCY,
+        );
+
+        if ($convertedAmount === null) {
+            throw ValidationException::withMessages([
+                'data.amount' => 'Currency conversion is unavailable right now. Try again in a moment.',
+            ]);
+        }
+
+        $data['amount'] = round($convertedAmount, 2);
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function storedAmountToPreferredCurrencyAmount(array $data): array
+    {
+        if (! isset($data['amount']) || ! is_numeric($data['amount'])) {
+            return $data;
+        }
+
+        $convertedAmount = app(FrankfurterService::class)->convert(
+            (float) $data['amount'],
+            self::STORAGE_CURRENCY,
+            $this->getPreferredCurrency(),
+        );
+
+        $data['amount'] = round($convertedAmount ?? (float) $data['amount'], 2);
+
+        return $data;
     }
 }
