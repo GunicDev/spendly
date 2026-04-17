@@ -62,6 +62,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         $this->form->fill([
             'type' => 'expense',
             'date' => now()->toDateString(),
+            'tax_id' => $this->getDefaultTaxId(),
             'tax_amount' => 0,
         ]);
     }
@@ -89,6 +90,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         $this->form->fill([
             'type' => 'expense',
             'date' => now()->toDateString(),
+            'tax_id' => $this->getDefaultTaxId(),
             'tax_amount' => 0,
         ]);
 
@@ -360,6 +362,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                             ->all())
                         ->searchable()
                         ->preload()
+                        ->default(fn (): ?int => $this->getDefaultTaxId())
                         ->live()
                         ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
                         ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set)),
@@ -406,6 +409,13 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getPreferredCurrency(): string
     {
         return Auth::user()?->preferred_currency ?? self::STORAGE_CURRENCY;
+    }
+
+    protected function getDefaultTaxId(): ?int
+    {
+        return Tax::query()
+            ->where('is_default', true)
+            ->value('id');
     }
 
     protected function formatTaxLabel(Tax $tax): string

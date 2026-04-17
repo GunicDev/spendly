@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('tax_name');
             $table->decimal('tax_rate', 5, 2);
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
         });
     }

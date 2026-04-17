@@ -5,14 +5,16 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TaxResource\Pages;
 use App\Models\Tax;
 use App\Models\User;
+use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use BackedEnum;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -48,6 +50,11 @@ class TaxResource extends Resource
                     ->minValue(0)
                     ->maxValue(100)
                     ->step(0.01),
+                ToggleButtons::make('is_default')
+                    ->label('Default')
+                    ->boolean()
+                    ->grouped()
+                    ->default(false),
             ]);
     }
 
@@ -68,6 +75,12 @@ class TaxResource extends Resource
                     ->extraCellAttributes(fn (Tax $record): array => static::getSelectableCellAttributes($record))
                     ->label('Tax Rate (%)')
                     ->numeric(decimalPlaces: 2)
+                    ->sortable(),
+                IconColumn::make('is_default')
+                    ->extraCellAttributes(fn (Tax $record): array => static::getSelectableCellAttributes($record))
+                    ->label('Default')
+                    ->alignCenter()
+                    ->boolean()
                     ->sortable(),
             ])
             ->filters([
