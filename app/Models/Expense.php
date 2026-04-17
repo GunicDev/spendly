@@ -15,14 +15,19 @@ class Expense extends Model
         'type',
         'name',
         'description',
+        'value',
         'amount',
+        'tax_id',
+        'tax_amount',
         'date',
     ];
 
     protected function casts(): array
     {
         return [
+            'value' => 'decimal:2',
             'amount' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
             'date' => 'date',
         ];
     }
@@ -30,5 +35,10 @@ class Expense extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function tax(): BelongsTo
+    {
+        return $this->belongsTo(Tax::class);
     }
 }

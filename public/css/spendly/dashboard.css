@@ -1,6 +1,6 @@
 @media (min-width: 800px) {
     .spendly-dashboard-equal-height {
-        --spendly-dashboard-section-height: 49rem;
+        --spendly-dashboard-section-height: 50rem;
         align-self: stretch;
         height: var(--spendly-dashboard-section-height);
     }

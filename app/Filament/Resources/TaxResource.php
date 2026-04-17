@@ -5,13 +5,13 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TaxResource\Pages;
 use App\Models\Tax;
 use App\Models\User;
-use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use BackedEnum;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -22,7 +22,7 @@ class TaxResource extends Resource
 {
     protected static ?string $model = Tax::class;
 
-    protected static string | BackedEnum | null $navigationIcon = Heroicon::CurrencyDollar;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::CurrencyDollar;
 
     protected static ?string $recordTitleAttribute = 'tax_name';
 

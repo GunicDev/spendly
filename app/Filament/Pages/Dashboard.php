@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ExpenseOverview;
 use App\Models\Expense;
+use App\Models\Tax;
 use App\Services\FrankfurterService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -61,6 +62,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         $this->form->fill([
             'type' => 'expense',
             'date' => now()->toDateString(),
+            'tax_amount' => 0,
         ]);
     }
 
@@ -75,7 +77,9 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
 
     public function create(): void
     {
-        $data = $this->preferredCurrencyAmountToStoredAmount($this->form->getState());
+        $data = $this->preferredCurrencyAmountsToStoredAmounts(
+            $this->calculateExpenseAmounts($this->form->getState()),
+        );
 
         Expense::create([
             ...$data,
@@ -85,6 +89,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         $this->form->fill([
             'type' => 'expense',
             'date' => now()->toDateString(),
+            'tax_amount' => 0,
         ]);
 
         $this->resetTable();
@@ -114,26 +119,46 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->label('Name')
                     ->searchable()
                     ->sortable()
-                    ->width('25%')
+                    ->width('18%')
                     ->grow(),
-                TextColumn::make('amount')
-                    ->label('Amount')
+                TextColumn::make('value')
+                    ->label('Value')
                     ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
                     ->sortable()
                     ->alignEnd()
-                    ->width('20%')
+                    ->width('14%')
+                    ->grow(),
+                TextColumn::make('tax.tax_rate')
+                    ->label('Tax')
+                    ->formatStateUsing(fn (?string $state): string => $state ?? '-')
+                    ->sortable()
+                    ->width('14%')
+                    ->grow(),
+                TextColumn::make('tax_amount')
+                    ->label('Tax amount')
+                    ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
+                    ->sortable()
+                    ->alignEnd()
+                    ->width('14%')
+                    ->grow(),
+                TextColumn::make('amount')
+                    ->label('Total')
+                    ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
+                    ->sortable()
+                    ->alignEnd()
+                    ->width('14%')
                     ->grow(),
                 TextColumn::make('date')
                     ->label('Date')
                     ->date('d.m.Y.')
                     ->sortable()
-                    ->width('18%')
+                    ->width('12%')
                     ->grow(),
                 TextColumn::make('description')
                     ->label('Description')
                     ->limit(38)
                     ->toggleable()                   
-                    ->width('25%')
+                    ->width('14%')
                     ->grow(),
             ])
             ->filters([
@@ -149,8 +174,10 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->schema($this->getExpenseFormSchema())
                     ->modalHeading('Edit entry')
                     ->successNotificationTitle('Entry updated')
-                    ->mutateRecordDataUsing(fn (array $data): array => $this->storedAmountToPreferredCurrencyAmount($data))
-                    ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountToStoredAmount($data))
+                    ->mutateRecordDataUsing(fn (array $data): array => $this->storedAmountsToPreferredCurrencyAmounts($data))
+                    ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountsToStoredAmounts(
+                        $this->calculateExpenseAmounts($data),
+                    ))
                     ->after(fn () => $this->dispatch('expense-updated')),
                 DeleteAction::make()
                     ->after(fn () => $this->dispatch('expense-deleted')),
@@ -277,12 +304,14 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getExpensesQuery(): Builder
     {
         return Expense::query()
+            ->with('tax')
             ->where('user_id', Auth::id());
     }
 
     protected function getExpenseFormSchema(): array
     {
         return [
+          
             ToggleButtons::make('type')
                 ->options([
                     'income' => 'Income',
@@ -294,22 +323,71 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ])
                 ->inline()
                 ->grouped()
+                ->live()
+                ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                    if ($state === 'income') {
+                        $set('tax_id', null);
+                    }
+
+                    $this->updateCalculatedAmountFields($get, $set);
+                })
                 ->required(),
-            TextInput::make('amount')
-                ->label('Amount')
-                ->inputMode('decimal')
-                ->numeric()
-                ->prefix(fn (): string => $this->getPreferredCurrency())
-                ->helperText('Use your preferred currency for this entry.')
-                ->minValue(0.01)
-                ->required(),
-            TextInput::make('name')
+                  TextInput::make('name')
                 ->label('Name')
                 ->maxLength(255)
                 ->required(),
+            Grid::make([
+                'default' => 1,
+                'md' => 2,
+            ])
+                ->schema([
+                    TextInput::make('value')
+                        ->label('Value')
+                        ->inputMode('decimal')
+                        ->numeric()
+                        ->prefix(fn (): string => $this->getPreferredCurrency())
+                        ->helperText('Enter the amount before tax in your preferred currency.')
+                        ->minValue(0.01)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set))
+                        ->required(),
+                    Select::make('tax_id')
+                        ->label('Tax')
+                        ->options(fn (): array => Tax::query()
+                            ->orderBy('tax_name')
+                            ->get()
+                            ->mapWithKeys(fn (Tax $tax): array => [$tax->getKey() => $this->formatTaxLabel($tax)])
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->live()
+                        ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
+                        ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set)),
+                ]),
+            Grid::make([
+                'default' => 1,
+                'md' => 2,
+            ])
+                ->schema([
+                    TextInput::make('tax_amount')
+                        ->label('Tax amount')
+                        ->inputMode('decimal')
+                        ->numeric()
+                        ->prefix(fn (): string => $this->getPreferredCurrency())
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->hidden(fn (Get $get): bool => $get('type') !== 'expense'),
+                    TextInput::make('amount')
+                        ->label('Total amount')
+                        ->inputMode('decimal')
+                        ->numeric()
+                        ->prefix(fn (): string => $this->getPreferredCurrency())
+                        ->disabled()
+                        ->dehydrated(false),
+                ]),
             Textarea::make('description')
                 ->label('Description')
-                ->rows(8)
+                ->rows(4)
                 ->maxLength(1000),
             DatePicker::make('date')
                 ->label('Date')
@@ -330,29 +408,78 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         return Auth::user()?->preferred_currency ?? self::STORAGE_CURRENCY;
     }
 
+    protected function formatTaxLabel(Tax $tax): string
+    {
+        return "{$tax->tax_name} ({$tax->tax_rate}%)";
+    }
+
+    protected function updateCalculatedAmountFields(Get $get, Set $set): null
+    {
+        $data = $this->calculateExpenseAmounts([
+            'type' => $get('type'),
+            'value' => $get('value'),
+            'tax_id' => $get('tax_id'),
+        ]);
+
+        if (($data['type'] ?? null) === 'income') {
+            $set('tax_id', null);
+        }
+
+        $set('tax_amount', $data['tax_amount'] ?? 0);
+        $set('amount', $data['amount'] ?? null);
+
+        return null;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function preferredCurrencyAmountToStoredAmount(array $data): array
+    protected function calculateExpenseAmounts(array $data): array
     {
-        if (! isset($data['amount']) || ! is_numeric($data['amount'])) {
+        if (! isset($data['value']) || ! is_numeric($data['value'])) {
             return $data;
         }
 
-        $convertedAmount = app(FrankfurterService::class)->convert(
-            (float) $data['amount'],
-            $this->getPreferredCurrency(),
-            self::STORAGE_CURRENCY,
-        );
+        $value = (float) $data['value'];
+        $taxRate = 0.0;
 
-        if ($convertedAmount === null) {
-            throw ValidationException::withMessages([
-                'data.amount' => 'Currency conversion is unavailable right now. Try again in a moment.',
-            ]);
+        if (($data['type'] ?? 'expense') === 'income') {
+            $data['tax_id'] = null;
+        } elseif (isset($data['tax_id']) && filled($data['tax_id'])) {
+            $taxRate = (float) (Tax::query()->whereKey($data['tax_id'])->value('tax_rate') ?? 0);
         }
 
-        $data['amount'] = round($convertedAmount, 2);
+        $taxAmount = round($value * $taxRate / 100, 2);
+
+        $data['value'] = round($value, 2);
+        $data['tax_amount'] = $taxAmount;
+        $data['amount'] = round($value + $taxAmount, 2);
+
+        return $data;
+    }
+
+    private function preferredCurrencyAmountsToStoredAmounts(array $data): array
+    {
+        foreach (['value', 'tax_amount', 'amount'] as $field) {
+            if (! isset($data[$field]) || ! is_numeric($data[$field])) {
+                continue;
+            }
+
+            $convertedAmount = app(FrankfurterService::class)->convert(
+                (float) $data[$field],
+                $this->getPreferredCurrency(),
+                self::STORAGE_CURRENCY,
+            );
+
+            if ($convertedAmount === null) {
+                throw ValidationException::withMessages([
+                    "data.{$field}" => 'Currency conversion is unavailable right now. Try again in a moment.',
+                ]);
+            }
+
+            $data[$field] = round($convertedAmount, 2);
+        }
 
         return $data;
     }
@@ -361,19 +488,21 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function storedAmountToPreferredCurrencyAmount(array $data): array
+    private function storedAmountsToPreferredCurrencyAmounts(array $data): array
     {
-        if (! isset($data['amount']) || ! is_numeric($data['amount'])) {
-            return $data;
+        foreach (['value', 'tax_amount', 'amount'] as $field) {
+            if (! isset($data[$field]) || ! is_numeric($data[$field])) {
+                continue;
+            }
+
+            $convertedAmount = app(FrankfurterService::class)->convert(
+                (float) $data[$field],
+                self::STORAGE_CURRENCY,
+                $this->getPreferredCurrency(),
+            );
+
+            $data[$field] = round($convertedAmount ?? (float) $data[$field], 2);
         }
-
-        $convertedAmount = app(FrankfurterService::class)->convert(
-            (float) $data['amount'],
-            self::STORAGE_CURRENCY,
-            $this->getPreferredCurrency(),
-        );
-
-        $data['amount'] = round($convertedAmount ?? (float) $data['amount'], 2);
 
         return $data;
     }
