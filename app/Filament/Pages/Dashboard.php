@@ -71,7 +71,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->width('18%')
                     ->grow(),
                 TextColumn::make('value')
-                    ->label('Value')
+                    ->label('Amount without tax')
                     ->formatStateUsing(fn (string $state): string => $this->formatMoney($state))
                     ->sortable()
                     ->alignEnd()
@@ -269,8 +269,8 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->label('Name')
                         ->maxLength(255)
                         ->required(),
-                    TextInput::make('value')
-                        ->label('Value')
+                    TextInput::make('amount')
+                        ->label('Total amount')
                         ->inputMode('decimal')
                         ->numeric()
                         ->prefix(fn (): string => $this->getPreferredCurrency())
@@ -299,14 +299,15 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->label('Tax amount')
                         ->inputMode('decimal')
                         ->numeric()
+                         ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
                         ->prefix(fn (): string => $this->getPreferredCurrency())
                         ->disabled()
                         ->dehydrated(false)
                         ->hidden(fn (Get $get): bool => $get('type') !== 'expense'),
-                    TextInput::make('amount')
-                        ->label('Total amount')
+                    TextInput::make('value')
+                        ->label('Amount without tax')
                         ->inputMode('decimal')
-                        ->numeric()
+                        ->numeric() ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
                         ->prefix(fn (): string => $this->getPreferredCurrency())
                         ->disabled()
                         ->dehydrated(false),
@@ -355,7 +356,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     {
         $data = $this->calculateExpenseAmounts([
             'type' => $get('type'),
-            'value' => $get('value'),
+            'amount' => $get('amount'),
             'tax_id' => $get('tax_id'),
         ]);
 
@@ -364,7 +365,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         }
 
         $set('tax_amount', $data['tax_amount'] ?? 0);
-        $set('amount', $data['amount'] ?? null);
+        $set('value', $data['value'] ?? null);
 
         return null;
     }
@@ -375,11 +376,11 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
      */
     protected function calculateExpenseAmounts(array $data): array
     {
-        if (! isset($data['value']) || ! is_numeric($data['value'])) {
+        if (! isset($data['amount']) || ! is_numeric($data['amount'])) {
             return $data;
         }
 
-        $value = (float) $data['value'];
+        $amount = (float) $data['amount'];
         $taxRate = 0.0;
 
         if (($data['type'] ?? 'expense') === 'income') {
@@ -388,11 +389,13 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
             $taxRate = (float) (Tax::query()->whereKey($data['tax_id'])->value('tax_rate') ?? 0);
         }
 
-        $taxAmount = round($value * $taxRate / 100, 2);
+        $value = $taxRate > 0
+            ? round($amount / (1 + ($taxRate / 100)), 2)
+            : round($amount, 2);
 
-        $data['value'] = round($value, 2);
-        $data['tax_amount'] = $taxAmount;
-        $data['amount'] = round($value + $taxAmount, 2);
+        $data['value'] = $value;
+        $data['tax_amount'] = round($amount - $value, 2);
+        $data['amount'] = round($amount, 2);
 
         return $data;
     }
