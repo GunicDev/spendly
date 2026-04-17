@@ -6,7 +6,7 @@ use App\Filament\Widgets\ExpenseOverview;
 use App\Models\Expense;
 use App\Models\Tax;
 use App\Services\FrankfurterService;
-use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -17,10 +17,8 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Actions\FilterAction;
 use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\EmbeddedTable;
-use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -30,7 +28,6 @@ use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -41,10 +38,6 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     use Tables\Concerns\InteractsWithTable {
         HasFiltersAction::normalizeTableFilterValuesFromQueryString insteadof Tables\Concerns\InteractsWithTable;
     }
-
-    public ?array $data = [];
-
-    public bool $isExpenseFormVisible = true;
 
     protected Width | string | null $maxContentWidth = Width::Full;
 
@@ -57,58 +50,12 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         return 'Dashboard';
     }
 
-    public function mount(): void
-    {
-        $this->form->fill([
-            'type' => 'expense',
-            'date' => now()->toDateString(),
-            'tax_id' => $this->getDefaultTaxId(),
-            'tax_amount' => 0,
-        ]);
-    }
-
-    public function form(Schema $schema): Schema
-    {
-        return $schema
-            ->model(Expense::class)
-            ->statePath('data')
-            ->columns(1)
-            ->components($this->getExpenseFormSchema());
-    }
-
-    public function create(): void
-    {
-        $data = $this->preferredCurrencyAmountsToStoredAmounts(
-            $this->calculateExpenseAmounts($this->form->getState()),
-        );
-
-        Expense::create([
-            ...$data,
-            'user_id' => Auth::id(),
-        ]);
-
-        $this->form->fill([
-            'type' => 'expense',
-            'date' => now()->toDateString(),
-            'tax_id' => $this->getDefaultTaxId(),
-            'tax_amount' => 0,
-        ]);
-
-        $this->resetTable();
-        $this->dispatch('expense-created');
-
-        Notification::make()
-            ->title('Entry added')
-            ->success()
-            ->send();
-    }
-
     public function table(Table $table): Table
     {
         return $table
             ->query($this->getExpensesQuery())
             ->emptyStateHeading('No expenses added')
-            ->emptyStateDescription('Add your first income or expense using the form on the left.')
+            ->emptyStateDescription('Add your first income or expense from the table action.')
             ->defaultSort('date', 'desc')
             ->columns([
                 TextColumn::make('type')
@@ -171,10 +118,28 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         'expense' => 'Expense',
                     ]),
             ])
+            ->headerActions([
+                CreateAction::make()
+                    ->label('Add entry')
+                    ->model(Expense::class)
+                    ->schema($this->getExpenseFormSchema())
+                    ->modalHeading('Add entry')
+                    ->modalWidth(Width::FourExtraLarge)
+                    ->createAnother(false)
+                    ->successNotificationTitle('Entry added')
+                    ->mutateDataUsing(fn (array $data): array => [
+                        ...$this->preferredCurrencyAmountsToStoredAmounts(
+                            $this->calculateExpenseAmounts($data),
+                        ),
+                        'user_id' => Auth::id(),
+                    ])
+                    ->after(fn () => $this->dispatch('expense-created')),
+            ])
             ->recordActions([
                 EditAction::make()
                     ->schema($this->getExpenseFormSchema())
                     ->modalHeading('Edit entry')
+                    ->modalWidth(Width::FourExtraLarge)
                     ->successNotificationTitle('Entry updated')
                     ->mutateRecordDataUsing(fn (array $data): array => $this->storedAmountsToPreferredCurrencyAmounts($data))
                     ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountsToStoredAmounts(
@@ -191,42 +156,12 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     {
         return $schema
             ->components([
-                Grid::make([
-                    'default' => 1,
-                    'lg' => 3,
-                ])
+                Section::make()
                     ->schema([
-                        Section::make('Add income or expense')
-                            ->schema([
-                                EmbeddedSchema::make('form'),
-                                Actions::make([
-                                    Action::make('create')
-                                        ->label('Add entry')
-                                        ->submit(null)
-                                        ->action('create'),
-                                ]),
-                            ])
-                            ->columnSpan([
-                                'default' => 1,
-                                'lg' => 1,
-                            ])
-                            ->extraAttributes([
-                                'class' => 'spendly-dashboard-form-section spendly-dashboard-equal-height',
-                            ])
-                            ->hidden(fn (): bool => ! $this->isExpenseFormVisible),
-                        Section::make()
-                            ->schema([
-                                EmbeddedTable::make(),
-                            ])
-                            ->extraAttributes(fn (): array => [
-                                'class' => $this->isExpenseFormVisible
-                                    ? 'spendly-dashboard-table-section spendly-dashboard-equal-height'
-                                    : 'spendly-dashboard-table-section',
-                            ])
-                            ->columnSpan(fn (): array => [
-                                'default' => 1,
-                                'lg' => $this->isExpenseFormVisible ? 2 : 'full',
-                            ]),
+                        EmbeddedTable::make(),
+                    ])
+                    ->extraAttributes([
+                        'class' => 'spendly-dashboard-table-section',
                     ]),
             ]);
     }
@@ -234,11 +169,6 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('toggleExpenseForm')
-                ->label(fn (): string => $this->isExpenseFormVisible ? 'Hide form' : 'Show form')
-                ->icon(fn (): string => $this->isExpenseFormVisible ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
-                ->color('gray')
-                ->action(fn (): bool => $this->isExpenseFormVisible = ! $this->isExpenseFormVisible),
             FilterAction::make()
                 ->label('Filter overview')
                 ->modalHeading('Filter overview')
@@ -255,11 +185,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->live()
                         ->required()
                         ->columnSpanFull(),
-                    Grid::make([
-                        'default' => 1,
-                        'md' => 2,
-                    ])
-                        ->schema([
+                    Group::make([
                             TextInput::make('month')
                                 ->label('Month')
                                 ->type('month')
@@ -291,6 +217,10 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                                 })
                                 ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
                         ])
+                        ->columns([
+                            'default' => 1,
+                            'sm' => 2,
+                        ])
                         ->columnSpanFull(),
                 ]),
         ];
@@ -313,8 +243,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getExpenseFormSchema(): array
     {
         return [
-          
-            ToggleButtons::make('type')
+             ToggleButtons::make('type')
                 ->options([
                     'income' => 'Income',
                     'expense' => 'Expense',
@@ -325,6 +254,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ])
                 ->inline()
                 ->grouped()
+                ->default('expense')
                 ->live()
                 ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
                     if ($state === 'income') {
@@ -334,25 +264,24 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     $this->updateCalculatedAmountFields($get, $set);
                 })
                 ->required(),
-                  TextInput::make('name')
-                ->label('Name')
-                ->maxLength(255)
-                ->required(),
-            Grid::make([
-                'default' => 1,
-                'md' => 2,
-            ])
-                ->schema([
+            Group::make([
+                    TextInput::make('name')
+                        ->label('Name')
+                        ->maxLength(255)
+                        ->required(),
                     TextInput::make('value')
                         ->label('Value')
                         ->inputMode('decimal')
                         ->numeric()
                         ->prefix(fn (): string => $this->getPreferredCurrency())
-                        ->helperText('Enter the amount before tax in your preferred currency.')
-                        ->minValue(0.01)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set))
                         ->required(),
+                ])
+                ->columns([
+                    'default' => 2,
+                ]),
+            Group::make([
                     Select::make('tax_id')
                         ->label('Tax')
                         ->options(fn (): array => Tax::query()
@@ -366,12 +295,6 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->live()
                         ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
                         ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set)),
-                ]),
-            Grid::make([
-                'default' => 1,
-                'md' => 2,
-            ])
-                ->schema([
                     TextInput::make('tax_amount')
                         ->label('Tax amount')
                         ->inputMode('decimal')
@@ -387,13 +310,18 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->prefix(fn (): string => $this->getPreferredCurrency())
                         ->disabled()
                         ->dehydrated(false),
+                ])
+                ->columns([
+                    'default' => 3,
                 ]),
+           
             Textarea::make('description')
                 ->label('Description')
                 ->rows(4)
                 ->maxLength(1000),
             DatePicker::make('date')
                 ->label('Date')
+                ->default(now()->toDateString())
                 ->required(),
         ];
     }

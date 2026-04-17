@@ -21,9 +21,9 @@
     }
 
     .spendly-dashboard-table-section > .fi-section > .fi-section-content-ctn,
-    .spendly-dashboard-table-section .fi-section-content,
-    .spendly-dashboard-table-section .fi-sc,
-    .spendly-dashboard-table-section .fi-sc-component,
+    .spendly-dashboard-table-section > .fi-section > .fi-section-content-ctn > .fi-section-content,
+    .spendly-dashboard-table-section > .fi-section > .fi-section-content-ctn > .fi-section-content > .fi-sc,
+    .spendly-dashboard-table-section > .fi-section > .fi-section-content-ctn > .fi-section-content > .fi-sc > .fi-grid-col > .fi-sc-component,
     .spendly-dashboard-table-section .fi-ta,
     .spendly-dashboard-table-section .fi-ta-ctn,
     .spendly-dashboard-table-section .fi-ta-main {
