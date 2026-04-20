@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables;
@@ -193,6 +194,16 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('periodReport')
+                ->label('Period report')
+                ->color('gray')
+                ->modalHeading('Generate period report')
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false)
+                ->modalWidth('xl')
+                ->schema([
+                    SchemaView::make('filament.dashboard.period-report-form'),
+                ]),
             FilterAction::make()
                 ->label('Filter overview')
                 ->modalHeading('Filter overview')
