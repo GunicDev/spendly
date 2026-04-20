@@ -119,6 +119,10 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .user-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
         .field {
             border-bottom: 1px solid #edf0f5;
             padding-bottom: 10px;
@@ -242,7 +246,7 @@
 
         <section>
             <h2>User</h2>
-            <div class="grid">
+            <div class="grid user-grid">
                 <div class="field">
                     <span class="label">Name</span>
                     <span class="value">{{ $expense->user?->name }}</span>
@@ -269,21 +273,25 @@
                     <span class="label">Date</span>
                     <span class="value">{{ $expense->date?->format('d.m.Y.') }}</span>
                 </div>
-                <div class="field">
-                    <span class="label">Tax</span>
-                    <span class="value">{{ $expense->tax?->tax_rate ? "{$expense->tax->tax_rate}%" : '-' }}</span>
-                </div>
+                @if ($expense->type !== 'income')
+                    <div class="field">
+                        <span class="label">Tax</span>
+                        <span class="value">{{ $expense->tax?->tax_rate ? "{$expense->tax->tax_rate}%" : '-' }}</span>
+                    </div>
+                @endif
             </div>
 
             <table class="totals">
-                <tr>
-                    <th>Amount without tax</th>
-                    <td>{{ $formatMoney($expense->value) }}</td>
-                </tr>
-                <tr>
-                    <th>Tax amount</th>
-                    <td>{{ $formatMoney($expense->tax_amount) }}</td>
-                </tr>
+                @if ($expense->type !== 'income')
+                    <tr>
+                        <th>Amount without tax</th>
+                        <td>{{ $formatMoney($expense->value) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Tax amount</th>
+                        <td>{{ $formatMoney($expense->tax_amount) }}</td>
+                    </tr>
+                @endif
                 <tr class="grand-total">
                     <th>Total</th>
                     <td>{{ $formatMoney($expense->amount) }}</td>
@@ -291,18 +299,12 @@
             </table>
         </section>
 
-        <section>
-            <h2>Description</h2>
-            <div class="description">{{ $expense->description ?: '-' }}</div>
-        </section>
+        @if (filled($expense->description))
+            <section>
+                <h2>Description</h2>
+                <div class="description">{{ $expense->description }}</div>
+            </section>
+        @endif
     </main>
-
-    @if ($autoPrint)
-        <script>
-            window.addEventListener('load', () => {
-                setTimeout(() => window.print(), 250);
-            });
-        </script>
-    @endif
 </body>
 </html>

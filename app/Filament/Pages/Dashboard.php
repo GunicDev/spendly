@@ -369,7 +369,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ])
                 ->columns([
                     'default' => 1,
-                    'sm' => 2,
+                    'sm' => 3,
                 ]),
             Section::make('Entry')
                 ->schema([
@@ -385,12 +385,15 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->date('d.m.Y.'),
                     TextEntry::make('tax.tax_rate')
                         ->label('Tax')
+                        ->hidden(fn (Expense $record): bool => $record->type === 'income')
                         ->placeholder('-'),
                     TextEntry::make('value')
                         ->label('Amount without tax')
+                        ->hidden(fn (Expense $record): bool => $record->type === 'income')
                         ->state(fn (Expense $record): string => $this->formatMoney($record->value)),
                     TextEntry::make('tax_amount')
                         ->label('Tax amount')
+                        ->hidden(fn (Expense $record): bool => $record->type === 'income')
                         ->state(fn (Expense $record): string => $this->formatMoney($record->tax_amount)),
                     TextEntry::make('amount')
                         ->label('Total')
