@@ -32,6 +32,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Js;
 use Illuminate\Validation\ValidationException;
 
 class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
@@ -149,11 +150,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         Action::make('printReport')
                             ->label('Print')
                             ->color('primary')
-                            ->url(fn (Expense $record): string => route('expenses.report.print', [
-                                'expense' => $record,
-                                'print' => 1,
-                            ]))
-                            ->openUrlInNewTab(),
+                            ->alpineClickHandler(fn (Expense $record): string => $this->getPrintReportClickHandler($record)),
                         Action::make('openReportPdfPreview')
                             ->label('Open PDF preview')
                             ->color('gray')
@@ -417,6 +414,44 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, self::STORAGE_CURRENCY, $currency) ?? (float) $amount;
 
         return number_format($convertedAmount, 2)." {$currency}";
+    }
+
+    protected function getPrintReportClickHandler(Expense $record): string
+    {
+        $url = Js::from(route('expenses.report.print', [
+            'expense' => $record,
+        ]));
+
+        return <<<JS
+            (() => {
+                const existingFrame = document.getElementById('spendly-report-print-frame');
+
+                if (existingFrame) {
+                    existingFrame.remove();
+                }
+
+                const frame = document.createElement('iframe');
+                frame.id = 'spendly-report-print-frame';
+                frame.src = {$url};
+                frame.style.position = 'fixed';
+                frame.style.right = '0';
+                frame.style.bottom = '0';
+                frame.style.width = '1px';
+                frame.style.height = '1px';
+                frame.style.border = '0';
+                frame.style.opacity = '0';
+                frame.style.pointerEvents = 'none';
+
+                frame.addEventListener('load', () => {
+                    setTimeout(() => {
+                        frame.contentWindow.focus();
+                        frame.contentWindow.print();
+                    }, 250);
+                }, { once: true });
+
+                document.body.appendChild(frame);
+            })()
+            JS;
     }
 
     protected function getPreferredCurrency(): string
