@@ -6,6 +6,7 @@ use App\Filament\Widgets\ExpenseOverview;
 use App\Models\Expense;
 use App\Models\Tax;
 use App\Services\FrankfurterService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Actions\FilterAction;
 use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
@@ -136,6 +138,14 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->after(fn () => $this->dispatch('expense-created')),
             ])
             ->recordActions([
+                  Action::make('report')
+                    ->label('Report')
+                    ->color('gray')
+                    ->modalHeading(fn (Expense $record): string => "Report: {$record->name}")
+                    ->modalWidth(Width::FourExtraLarge)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->schema($this->getExpenseReportSchema()),
                 EditAction::make()
                     ->schema($this->getExpenseFormSchema())
                     ->modalHeading('Edit entry')
@@ -145,7 +155,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountsToStoredAmounts(
                         $this->calculateExpenseAmounts($data),
                     ))
-                    ->after(fn () => $this->dispatch('expense-updated')),
+                    ->after(fn () => $this->dispatch('expense-updated')),              
                 DeleteAction::make()
                     ->after(fn () => $this->dispatch('expense-deleted')),
             ])
@@ -324,6 +334,63 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 ->label('Date')
                 ->default(now()->toDateString())
                 ->required(),
+        ];
+    }
+
+    protected function getExpenseReportSchema(): array
+    {
+        return [
+            Section::make('User')
+                ->schema([
+                    TextEntry::make('report_user_name')
+                        ->label('Name')
+                        ->state(fn (Expense $record): ?string => $record->user?->name ?? Auth::user()?->name),
+                    TextEntry::make('report_user_email')
+                        ->label('Email')
+                        ->state(fn (Expense $record): ?string => $record->user?->email ?? Auth::user()?->email),                  
+                    TextEntry::make('report_user_currency')
+                        ->label('Preferred currency')
+                        ->state(fn (): string => $this->getPreferredCurrency())
+                        ->badge(),
+                ])
+                ->columns([
+                    'default' => 1,
+                    'sm' => 2,
+                ]),
+            Section::make('Entry')
+                ->schema([
+                    TextEntry::make('type')
+                        ->label('Type')
+                        ->formatStateUsing(fn (string $state): string => $state === 'income' ? 'Income' : 'Expense')
+                        ->badge()
+                        ->color(fn (string $state): string => $state === 'income' ? 'success' : 'danger'),
+                    TextEntry::make('name')
+                        ->label('Name'),
+                    TextEntry::make('date')
+                        ->label('Date')
+                        ->date('d.m.Y.'),
+                    TextEntry::make('tax.tax_rate')
+                        ->label('Tax')
+                        ->placeholder('-'),
+                    TextEntry::make('value')
+                        ->label('Amount without tax')
+                        ->state(fn (Expense $record): string => $this->formatMoney($record->value)),
+                    TextEntry::make('tax_amount')
+                        ->label('Tax amount')
+                        ->state(fn (Expense $record): string => $this->formatMoney($record->tax_amount)),
+                    TextEntry::make('amount')
+                        ->label('Total')
+                        ->state(fn (Expense $record): string => $this->formatMoney($record->amount)),
+                    TextEntry::make('description')
+                        ->label('Description')
+                        ->placeholder('-')
+                        ->columnSpanFull(),
+                ])
+                ->columns([
+                    'default' => 1,
+                    'sm' => 2,
+                    'lg' => 3,
+                ]),
         ];
     }
 
