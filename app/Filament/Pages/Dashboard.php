@@ -16,8 +16,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Actions\FilterAction;
+use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Group;
@@ -41,7 +41,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         HasFiltersAction::normalizeTableFilterValuesFromQueryString insteadof Tables\Concerns\InteractsWithTable;
     }
 
-    protected Width | string | null $maxContentWidth = Width::Full;
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     protected static ?string $navigationLabel = 'Dashboard';
 
@@ -108,7 +108,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 TextColumn::make('description')
                     ->label('Description')
                     ->limit(38)
-                    ->toggleable()                   
+                    ->toggleable()
                     ->width('14%')
                     ->grow(),
             ])
@@ -138,13 +138,30 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->after(fn () => $this->dispatch('expense-created')),
             ])
             ->recordActions([
-                  Action::make('report')
+                Action::make('report')
                     ->label('Report')
                     ->color('gray')
                     ->modalHeading(fn (Expense $record): string => "Report: {$record->name}")
                     ->modalWidth(Width::FourExtraLarge)
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
+                    ->extraModalFooterActions([
+                        Action::make('printReport')
+                            ->label('Print')
+                            ->color('primary')
+                            ->url(fn (Expense $record): string => route('expenses.report.print', [
+                                'expense' => $record,
+                                'print' => 1,
+                            ]))
+                            ->openUrlInNewTab(),
+                        Action::make('openReportPdfPreview')
+                            ->label('Open PDF preview')
+                            ->color('gray')
+                            ->url(fn (Expense $record): string => route('expenses.report.print', [
+                                'expense' => $record,
+                            ]))
+                            ->openUrlInNewTab(),
+                    ])
                     ->schema($this->getExpenseReportSchema()),
                 EditAction::make()
                     ->schema($this->getExpenseFormSchema())
@@ -155,7 +172,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                     ->mutateDataUsing(fn (array $data): array => $this->preferredCurrencyAmountsToStoredAmounts(
                         $this->calculateExpenseAmounts($data),
                     ))
-                    ->after(fn () => $this->dispatch('expense-updated')),              
+                    ->after(fn () => $this->dispatch('expense-updated')),
                 DeleteAction::make()
                     ->after(fn () => $this->dispatch('expense-deleted')),
             ])
@@ -196,37 +213,37 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->required()
                         ->columnSpanFull(),
                     Group::make([
-                            TextInput::make('month')
-                                ->label('Month')
-                                ->type('month')
-                                ->default(now()->format('Y-m'))
-                                ->hidden(fn (Get $get): bool => $get('period') !== 'month')
-                                ->columnSpanFull(),
-                            DatePicker::make('startDate')
-                                ->label('From')
-                                ->live()
-                                ->maxDate(fn (Get $get): ?string => $get('endDate'))
-                                ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
-                                    $endDate = $get('endDate');
+                        TextInput::make('month')
+                            ->label('Month')
+                            ->type('month')
+                            ->default(now()->format('Y-m'))
+                            ->hidden(fn (Get $get): bool => $get('period') !== 'month')
+                            ->columnSpanFull(),
+                        DatePicker::make('startDate')
+                            ->label('From')
+                            ->live()
+                            ->maxDate(fn (Get $get): ?string => $get('endDate'))
+                            ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                                $endDate = $get('endDate');
 
-                                    if ($state && $endDate && $state > $endDate) {
-                                        $set('endDate', null);
-                                    }
-                                })
-                                ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
-                            DatePicker::make('endDate')
-                                ->label('To')
-                                ->live()
-                                ->minDate(fn (Get $get): ?string => $get('startDate'))
-                                ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
-                                    $startDate = $get('startDate');
+                                if ($state && $endDate && $state > $endDate) {
+                                    $set('endDate', null);
+                                }
+                            })
+                            ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
+                        DatePicker::make('endDate')
+                            ->label('To')
+                            ->live()
+                            ->minDate(fn (Get $get): ?string => $get('startDate'))
+                            ->afterStateUpdated(function (?string $state, Get $get, Set $set): void {
+                                $startDate = $get('startDate');
 
-                                    if ($state && $startDate && $state < $startDate) {
-                                        $set('startDate', null);
-                                    }
-                                })
-                                ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
-                        ])
+                                if ($state && $startDate && $state < $startDate) {
+                                    $set('startDate', null);
+                                }
+                            })
+                            ->hidden(fn (Get $get): bool => $get('period') !== 'range'),
+                    ])
                         ->columns([
                             'default' => 1,
                             'sm' => 2,
@@ -253,7 +270,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
     protected function getExpenseFormSchema(): array
     {
         return [
-             ToggleButtons::make('type')
+            ToggleButtons::make('type')
                 ->options([
                     'income' => 'Income',
                     'expense' => 'Expense',
@@ -275,57 +292,57 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                 })
                 ->required(),
             Group::make([
-                    TextInput::make('name')
-                        ->label('Name')
-                        ->maxLength(255)
-                        ->required(),
-                    TextInput::make('amount')
-                        ->label('Total amount')
-                        ->inputMode('decimal')
-                        ->numeric()
-                        ->prefix(fn (): string => $this->getPreferredCurrency())
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set))
-                        ->required(),
-                ])
+                TextInput::make('name')
+                    ->label('Name')
+                    ->maxLength(255)
+                    ->required(),
+                TextInput::make('amount')
+                    ->label('Total amount')
+                    ->inputMode('decimal')
+                    ->numeric()
+                    ->prefix(fn (): string => $this->getPreferredCurrency())
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set))
+                    ->required(),
+            ])
                 ->columns([
                     'default' => 2,
                 ]),
             Group::make([
-                    Select::make('tax_id')
-                        ->label('Tax')
-                        ->options(fn (): array => Tax::query()
-                            ->orderBy('tax_name')
-                            ->get()
-                            ->mapWithKeys(fn (Tax $tax): array => [$tax->getKey() => $this->formatTaxLabel($tax)])
-                            ->all())
-                        ->searchable()
-                        ->preload()
-                        ->default(fn (): ?int => $this->getDefaultTaxId())
-                        ->live()
-                        ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
-                        ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set)),
-                    TextInput::make('tax_amount')
-                        ->label('Tax amount')
-                        ->inputMode('decimal')
-                        ->numeric()
-                         ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
-                        ->prefix(fn (): string => $this->getPreferredCurrency())
-                        ->disabled()
-                        ->dehydrated(false)
-                        ->hidden(fn (Get $get): bool => $get('type') !== 'expense'),
-                    TextInput::make('value')
-                        ->label('Amount without tax')
-                        ->inputMode('decimal')
-                        ->numeric() ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
-                        ->prefix(fn (): string => $this->getPreferredCurrency())
-                        ->disabled()
-                        ->dehydrated(false),
-                ])
+                Select::make('tax_id')
+                    ->label('Tax')
+                    ->options(fn (): array => Tax::query()
+                        ->orderBy('tax_name')
+                        ->get()
+                        ->mapWithKeys(fn (Tax $tax): array => [$tax->getKey() => $this->formatTaxLabel($tax)])
+                        ->all())
+                    ->searchable()
+                    ->preload()
+                    ->default(fn (): ?int => $this->getDefaultTaxId())
+                    ->live()
+                    ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
+                    ->afterStateUpdated(fn (Get $get, Set $set): null => $this->updateCalculatedAmountFields($get, $set)),
+                TextInput::make('tax_amount')
+                    ->label('Tax amount')
+                    ->inputMode('decimal')
+                    ->numeric()
+                    ->hidden(fn (Get $get): bool => $get('type') !== 'expense')
+                    ->prefix(fn (): string => $this->getPreferredCurrency())
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->hidden(fn (Get $get): bool => $get('type') !== 'expense'),
+                TextInput::make('value')
+                    ->label('Amount without tax')
+                    ->inputMode('decimal')
+                    ->numeric()->hidden(fn (Get $get): bool => $get('type') !== 'expense')
+                    ->prefix(fn (): string => $this->getPreferredCurrency())
+                    ->disabled()
+                    ->dehydrated(false),
+            ])
                 ->columns([
                     'default' => 3,
                 ]),
-           
+
             Textarea::make('description')
                 ->label('Description')
                 ->rows(4)
@@ -347,7 +364,7 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
                         ->state(fn (Expense $record): ?string => $record->user?->name ?? Auth::user()?->name),
                     TextEntry::make('report_user_email')
                         ->label('Email')
-                        ->state(fn (Expense $record): ?string => $record->user?->email ?? Auth::user()?->email),                  
+                        ->state(fn (Expense $record): ?string => $record->user?->email ?? Auth::user()?->email),
                     TextEntry::make('report_user_currency')
                         ->label('Preferred currency')
                         ->state(fn (): string => $this->getPreferredCurrency())
@@ -394,12 +411,12 @@ class Dashboard extends BaseDashboard implements Tables\Contracts\HasTable
         ];
     }
 
-    protected function formatMoney(float | int | string $amount): string
+    protected function formatMoney(float|int|string $amount): string
     {
         $currency = $this->getPreferredCurrency();
         $convertedAmount = app(FrankfurterService::class)->convert((float) $amount, self::STORAGE_CURRENCY, $currency) ?? (float) $amount;
 
-        return number_format($convertedAmount, 2) . " {$currency}";
+        return number_format($convertedAmount, 2)." {$currency}";
     }
 
     protected function getPreferredCurrency(): string
