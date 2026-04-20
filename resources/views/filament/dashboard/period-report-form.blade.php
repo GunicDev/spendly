@@ -85,7 +85,7 @@
 
     </div>
 
-    <div class="flex flex-wrap items-center gap-3" style="margin-top: 1.5rem; margin-right: 3rem;">
+    <div class="flex flex-wrap items-center gap-3" style="margin-top: 1.5rem;">
         <button
             class="fi-btn fi-color-primary fi-btn-color-primary fi-size-md inline-grid grid-flow-col items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm outline-none transition duration-75 hover:bg-primary-500 focus-visible:ring-2 focus-visible:ring-primary-600 dark:bg-primary-500 dark:hover:bg-primary-400 dark:focus-visible:ring-primary-500"
             type="button"
@@ -95,6 +95,7 @@
         </button>
 
         <button
+            style="margin-left: 1.0rem;"
             class="fi-btn fi-color-gray fi-btn-color-gray fi-size-md inline-grid grid-flow-col items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-950 shadow-sm ring-1 ring-gray-950/10 outline-none transition duration-75 hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20 dark:hover:bg-white/10 dark:focus-visible:ring-primary-500"
             type="button"
             x-on:click="$dispatch('close-modal', { id: $el.closest('[data-fi-modal-id]').dataset.fiModalId })"

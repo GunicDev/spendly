@@ -235,6 +235,7 @@
             <span class="muted">Print or save as PDF</span>
         </div>
         <div class="toolbar-actions">
+            <a class="button" href="{{ request()->fullUrlWithQuery(['download' => 'pdf']) }}">Download PDF</a>
             <button class="button" type="button" onclick="window.print()">Print</button>
             <a class="button secondary" href="{{ url()->previous() }}">Back</a>
         </div>
